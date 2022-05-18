@@ -1,4 +1,4 @@
-package tutorial.learn._4_twitter_elasticsearch;
+package tutorial.learn._4_twitter_elasticsearch._1_producer;
 
 import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
