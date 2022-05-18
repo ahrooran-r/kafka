@@ -1,4 +1,4 @@
-package tutorial.learn._4_twitter;
+package tutorial.learn._4_twitter_elasticsearch;
 
 import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
@@ -10,6 +10,7 @@ import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
 import com.twitter.hbc.core.processor.StringDelimitedProcessor;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
+import lombok.SneakyThrows;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -27,6 +28,34 @@ public class _1_TwitterProducer {
         new _1_TwitterProducer().run();
     }
 
+    public KafkaProducer<String, String> createKafkaProducer() {
+
+        Properties props = new Properties();
+        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        props.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+
+
+        // create safe producer
+        props.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        props.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        props.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
+        props.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
+        // because kafka v2.0 > v1.1 -> we can keep this as 5 otherwise keep it as 1
+        props.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+
+
+        // create high throughput producer -> at the expense of little bit latency and cpu cycles
+        props.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        props.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        props.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, String.valueOf(32 * 1024)); // 32kB batch size
+
+        KafkaProducer<String, String> producer = new KafkaProducer<>(props);
+
+        return producer;
+    }
+
+    @SneakyThrows
     public void run() {
 
         // create twitter client
@@ -77,46 +106,7 @@ public class _1_TwitterProducer {
             sendToKafka.start();
 
             sendToKafka.join();
-
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
-
-        // send tweets to kafka
-
-    }
-
-    public KafkaProducer<String, String> createKafkaProducer() {
-
-        Properties props = new Properties();
-        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        props.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        props.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-
-
-        // create safe producer
-        props.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
-        props.setProperty(ProducerConfig.ACKS_CONFIG, "all");
-        props.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
-        props.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
-        // because kafka v2.0 > v1.1 -> we can keep this as 5 otherwise keep it as 1
-        props.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
-
-
-        // create high throughput producer -> at the expense of little bit latency and cpu cycles
-        props.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
-        props.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
-        props.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, String.valueOf(32 * 1024)); // 32kB batch size
-
-
-
-
-
-
-        KafkaProducer<String, String> producer = new KafkaProducer<>(props);
-
-        return producer;
-
     }
 
     public Client createTwitterClient(BlockingQueue<String> msgQueue) {
